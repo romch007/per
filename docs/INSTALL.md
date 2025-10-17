@@ -26,7 +26,7 @@ The WDK provides the headers, libraries, and tools needed to build Windows kerne
 
 ## 3. Set up the Windows 11 Virtual Machine
  
-> NOTE: We used Oracle VirtualBox, but it is possible...
+> NOTE: We used Oracle VirtualBox, but it’s also possible to use VMware Workstation or Hyper-V.
 
 1. Install Windows 11 in the VM.
 2. Setup a **Host-Only Network Adapter** and note the VM's IP.
