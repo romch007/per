@@ -6,8 +6,8 @@ PASSWORD = "poly"
 parser = argparse.ArgumentParser(
     prog='sender', description="Send commands to PER driver")
 
-parser.add_argument('IP')
-parser.add_argument('COMMAND')
+parser.add_argument('IP', help='IP address of the target')
+parser.add_argument('COMMAND', help='Windows command to execute on the target')
 
 args = parser.parse_args()
 
