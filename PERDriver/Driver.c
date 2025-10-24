@@ -6,7 +6,7 @@ NTSTATUS DriverUnload(_In_ PDRIVER_OBJECT driverObject) {
     UNREFERENCED_PARAMETER(driverObject);
 
     Cleanup();
-    KdPrint(("[PER driver] Unloaded"));
+    KdPrint(("[PER driver] Unloaded\n"));
 
     return STATUS_SUCCESS;
 }
@@ -14,12 +14,12 @@ NTSTATUS DriverUnload(_In_ PDRIVER_OBJECT driverObject) {
 NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT driverObject, _In_ PUNICODE_STRING registryPath) {
     UNREFERENCED_PARAMETER(registryPath);
     
-    KdPrint(("[PER driver] Loaded"));
+    KdPrint(("[PER driver] Loaded\n"));
     driverObject->DriverUnload = DriverUnload;
 
     NTSTATUS status = WfpInit(driverObject);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("[PER Driver] Failed to init WFP"));
+        KdPrint(("[PER Driver] Failed to init WFP\n"));
         return status;
     }
 

