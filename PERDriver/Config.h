@@ -1,5 +1,8 @@
 #pragma once
 
+#include <ntddk.h>
+#include <wdf.h>
+
 BYTE PASSWORD[4] = { 0x71, 0x72, 0x73, 0x74 }; // Password used for the network trigger (needs to be EXACTLY 4 bytes)
 
 #pragma warning(disable: 4996)                 // Ignore deprecated function calls - used for ExAllocatePoolWithTag
