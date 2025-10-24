@@ -7,41 +7,41 @@ NTSTATUS WfpInit(PDRIVER_OBJECT driverObject) {
     // Create a device object (used in the callout registration)
     NTSTATUS status = IoCreateDevice(driverObject, 0, NULL, FILE_DEVICE_UNKNOWN, 0, FALSE, &filterDeviceObject);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("Failed to create the filter device object (0x%X).\n", status));
+        KdPrint(("[PER Driver] Failed to create the filter device object (0x%X).\n", status));
         return status;
     }
 
     // Open a session to the filter engine
     status = FwpmEngineOpen(NULL, RPC_C_AUTHN_WINNT, NULL, NULL, &engineHandle);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("Failed to open the filter engine (0x%X).\n", status));
+        KdPrint(("[PER Driver] Failed to open the filter engine (0x%X).\n", status));
         return status;
     }
     
     status = CalloutRegister();
     if (!NT_SUCCESS(status)) {
-        KdPrint(("Failed to register the filter callout (0x%X).\n", status));
+        KdPrint(("[PER Driver] Failed to register the filter callout (0x%X).\n", status));
         return status;
     }
 
     // Add the callout to the system
     status = CalloutAdd();
     if (!NT_SUCCESS(status)) {
-        KdPrint(("Failed to add the filter callout (0x%X).\n", status));
+        KdPrint(("[PER Driver] Failed to add the filter callout (0x%X).\n", status));
         return status;
     }
 
     // Add a sublayer to the system
     status = SublayerAdd();
     if (!NT_SUCCESS(status)) {
-        KdPrint(("Failed to add the sublayer (0x%X).\n", status));
+        KdPrint(("[PER Driver] Failed to add the sublayer (0x%X).\n", status));
         return status;
     }
 
     // Add a filtering rule to the added sublayer
     status = FilterAdd();
     if (!NT_SUCCESS(status)) {
-        KdPrint(("Failed to add the filter (0x%X).\n", status));
+        KdPrint(("[PER Driver] Failed to add the filter (0x%X).\n", status));
         return status;
     }
 
@@ -81,7 +81,7 @@ VOID CalloutFilter(
     UNREFERENCED_PARAMETER(classifyOut);
 
     // Packet parsing logic goes here...
-    KdPrint(("Received a packet!\n"));
+    KdPrint(("[PER Driver] Received a packet!\n"));
 }
 
 NTSTATUS CalloutNotify(

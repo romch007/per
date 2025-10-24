@@ -1,9 +1,11 @@
 #include <ntddk.h>
 
+#include "Trigger.h"
+
 NTSTATUS DriverUnload(_In_ PDRIVER_OBJECT driverObject) {
     UNREFERENCED_PARAMETER(driverObject);
 
-    DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "PER driver unloaded");
+    KdPrint(("[PER driver] Unloaded"));
 
     return STATUS_SUCCESS;
 }
@@ -11,8 +13,14 @@ NTSTATUS DriverUnload(_In_ PDRIVER_OBJECT driverObject) {
 NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT driverObject, _In_ PUNICODE_STRING registryPath) {
     UNREFERENCED_PARAMETER(registryPath);
     
-    DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "PER driver loaded");
+    KdPrint(("[PER driver] Loaded"));
     driverObject->DriverUnload = DriverUnload;
+
+    NTSTATUS status = WfpInit(driverObject);
+    if (!NT_SUCCESS(status)) {
+        KdPrint(("[PER Driver] Failed to init WFP"));
+        return status;
+    }
 
     return STATUS_SUCCESS;
 }
