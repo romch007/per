@@ -43,3 +43,8 @@ VOID      TermFilterDeviceObject();
 VOID      TermCalloutData();
 VOID      TermWfpEngine();
 VOID      WfpCleanup();
+
+VOID	  Cleanup();
+VOID	  TermCalloutIds();
+VOID	  TermWfpEngine();
+VOID	  TermFilterDeviceObject();

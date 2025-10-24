@@ -5,6 +5,7 @@
 NTSTATUS DriverUnload(_In_ PDRIVER_OBJECT driverObject) {
     UNREFERENCED_PARAMETER(driverObject);
 
+    Cleanup();
     KdPrint(("[PER driver] Unloaded"));
 
     return STATUS_SUCCESS;

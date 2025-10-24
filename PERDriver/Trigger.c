@@ -196,3 +196,54 @@ NTSTATUS FilterAdd() {
 
     return FwpmFilterAdd(engineHandle, &filter, NULL, &filterId);
 }
+
+VOID Cleanup() {
+    TermCalloutIds();
+    TermWfpEngine();
+    TermFilterDeviceObject();
+}
+
+VOID TermCalloutIds() {
+    DbgPrint("Terminating callout identifiers.\n");
+
+    if (engineHandle) {
+
+        // Clear 'filterId' related data
+        if (filterId) {
+            FwpmFilterDeleteById(engineHandle, filterId);
+            FwpmSubLayerDeleteByKey(engineHandle, &SUB_LAYER_GUID);
+            filterId = 0;
+        }
+
+        // Clear 'addCalloutId' related data
+        if (addCalloutId) {
+            FwpmCalloutDeleteById(engineHandle, addCalloutId);
+            addCalloutId = 0;
+        }
+
+        // Clear 'registerCalloutId' related data
+        if (registerCalloutId) {
+            FwpsCalloutUnregisterById(registerCalloutId);
+            registerCalloutId = 0;
+        }
+
+    }
+}
+
+VOID TermWfpEngine() {
+    DbgPrint("Terminating the filter engine handle.\n");
+
+    if (engineHandle) {
+        FwpmEngineClose(engineHandle);
+        engineHandle = NULL;
+    }
+}
+
+VOID TermFilterDeviceObject() {
+    DbgPrint("Terminating the device object.\n");
+
+    if (filterDeviceObject) {
+        IoDeleteDevice(filterDeviceObject);
+        filterDeviceObject = NULL;
+    }
+}
