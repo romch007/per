@@ -101,8 +101,8 @@ NTSTATUS CalloutAdd() {
 
     FWPM_CALLOUT callout = {
       .flags = 0,                                // None
-      .displayData.name = L"MaliciousCalloutName",
-      .displayData.description = L"MaliciousCalloutDescription",
+      .displayData.name = L"PER Driver Callout",
+      .displayData.description = L"Do cool stuff on the computer",
       .calloutKey = CALLOUT_GUID,                     // The GUID that uniquely identifies the callout (must match the registered FWPS_CALLOUT GUID)
       .applicableLayer = FWPM_LAYER_INBOUND_TRANSPORT_V4
     };
@@ -113,8 +113,8 @@ NTSTATUS CalloutAdd() {
 NTSTATUS SublayerAdd() {
 
     FWPM_SUBLAYER sublayer = {
-      .displayData.name = L"MaliciousSublayerName",
-      .displayData.name = L"MaliciousSublayerDescription",
+      .displayData.name = L"PER Driver Sublayer",
+      .displayData.name = L"Do cool stuff on the computer",
       .subLayerKey = SUB_LAYER_GUID,         // Unique GUID that identifies the sublayer
       .weight = 65535                   // Max UINT16 value, higher weight means higher priority
     };
@@ -129,8 +129,8 @@ NTSTATUS FilterAdd() {
     FWPM_FILTER_CONDITION conditions[1] = { 0 };                              // Filter conditions can be empty, we want to process every packet
 
     FWPM_FILTER filter = {
-      .displayData.name = L"MaliciousFilterName",
-      .displayData.name = L"MaliciousFilterDescription",
+      .displayData.name = L"PER Driver Filter",
+      .displayData.name = L"Do cool stuff on the computer",
       .layerKey = FWPM_LAYER_INBOUND_TRANSPORT_V4,  // Needs to work on the same layer as our added callout
       .subLayerKey = SUB_LAYER_GUID,                   // Unique GUID that identifies the sublayer, GUID needs to be the same as the GUID of the added sublayer
       .weight = weight,                           // Weight variable, higher weight means higher priority
