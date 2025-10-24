@@ -7,7 +7,6 @@
 // WFP headers
 #include <fwpmk.h>
 #include <fwpsk.h>
-#include <fwpmu.h>
 
 // GUID headers
 // https://www.gamedev.net/forums/topic/18905-initguid-an-explanation/
