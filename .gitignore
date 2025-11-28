@@ -632,5 +632,22 @@ poetry.toml
 # LSP config files
 pyrightconfig.json
 
+### IDAPro ###
+# gitginore template for IDA Pro
+# website: https://www.hex-rays.com/index.shtml
+
+# IDA Pro Runtime temporary file
+*.id0
+*.id1
+*.id2
+*.nam
+*.til
+
+# IDA Pro 64 packaged data
+# *.i64
+# IDA Pro 32 packaged data
+# *.idb
+
+
 # End of https://www.toptal.com/developers/gitignore/api/python
 
