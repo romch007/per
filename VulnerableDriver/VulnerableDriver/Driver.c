@@ -5,6 +5,48 @@
 
 const char* PONG = "PONG";
 
+NTSTATUS ReadMemory(PHYSICAL_ADDRESS* systemBuffer, UINT32 inputBufferSize, VOID* outputBuffer, UINT32 outputBufferSize, VOID* unused) {
+    UNREFERENCED_PARAMETER(unused);
+
+    if (inputBufferSize != 16)
+        return STATUS_INVALID_PARAMETER;
+
+    UINT32 numberOfBytes = systemBuffer[1].HighPart * systemBuffer[1].LowPart;
+
+    if (outputBufferSize < numberOfBytes)
+        return STATUS_INVALID_PARAMETER;
+
+    UINT32* baseAddress = MmMapIoSpace(*systemBuffer, numberOfBytes, MmNonCached);
+
+    RtlCopyMemory(outputBuffer, baseAddress, systemBuffer[1].HighPart);
+
+    MmUnmapIoSpace(baseAddress, numberOfBytes);
+
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS WriteMemory(PHYSICAL_ADDRESS* inputBuffer, UINT32 inputBufferSize, VOID* unused1, VOID* unused2, VOID* unused3) {
+    UNREFERENCED_PARAMETER(unused1);
+    UNREFERENCED_PARAMETER(unused2);
+    UNREFERENCED_PARAMETER(unused3);
+
+    if (inputBufferSize < 16)
+        return STATUS_INVALID_PARAMETER;
+
+    UINT32 numberOfBytes = inputBuffer[1].HighPart * inputBuffer[1].LowPart;
+
+    if (inputBufferSize < numberOfBytes + 16)
+        return STATUS_INVALID_PARAMETER;
+
+    UINT32* baseAddress = MmMapIoSpace(*inputBuffer, numberOfBytes, MmNonCached);
+
+    RtlCopyMemory(baseAddress, &inputBuffer[2], inputBuffer[1].HighPart);
+
+    MmUnmapIoSpace(baseAddress, numberOfBytes);
+
+    return STATUS_SUCCESS;
+}
+
 VOID VulnDriverIoDeviceControl(
     _In_ WDFQUEUE queue,
     _In_ WDFREQUEST request,
@@ -17,6 +59,9 @@ VOID VulnDriverIoDeviceControl(
     UNREFERENCED_PARAMETER(inputBufferLength);
 
     NTSTATUS status = STATUS_SUCCESS;
+
+    IRP* irp = WdfRequestWdmGetIrp(request);
+    UINT32* stack = (UINT32*)irp->Tail.Overlay.CurrentStackLocation;
 
     switch (ioControlCode) {
     case IOCTL_PING: {
@@ -37,6 +82,30 @@ VOID VulnDriverIoDeviceControl(
 
         WdfRequestCompleteWithInformation(request, STATUS_SUCCESS, sizeof(UINT32));
         return;
+    }
+    case IOCTL_READ_MEMORY: {
+        // Arguments are extracted from IDA
+        status = ReadMemory(
+            irp->AssociatedIrp.MasterIrp,
+            *((UINT32*)stack + 4),
+            irp->AssociatedIrp.MasterIrp,
+            *((UINT32*)stack + 2),
+            &irp->IoStatus.Information
+        );
+        if (!NT_SUCCESS(status))
+            break;
+    }
+    case IOCTL_WRITE_MEMORY: {
+        // Arguments are extracted from IDA
+        status = WriteMemory(
+            irp->AssociatedIrp.MasterIrp,
+            *((UINT32*)stack + 4),
+            irp->AssociatedIrp.MasterIrp,
+            *((UINT32*)stack + 2),
+            &irp->IoStatus.Information
+        );
+        if (!NT_SUCCESS(status))
+            break;
     }
     default:
         status = STATUS_INVALID_DEVICE_REQUEST;
