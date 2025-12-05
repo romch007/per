@@ -5,42 +5,32 @@
 
 const char* PONG = "PONG";
 
-NTSTATUS ReadMemory(PHYSICAL_ADDRESS* systemBuffer, UINT32 inputBufferSize, VOID* outputBuffer, UINT32 outputBufferSize, VOID* unused) {
-    UNREFERENCED_PARAMETER(unused);
-
-    if (inputBufferSize != 16)
-        return STATUS_INVALID_PARAMETER;
-
-    UINT32 numberOfBytes = systemBuffer[1].HighPart * systemBuffer[1].LowPart;
+NTSTATUS ReadMemory(PHYSICAL_ADDRESS* addr, UINT32 size, VOID* outputBuffer, UINT32 outputBufferSize, LONG* written) {
+    UINT32 numberOfBytes = addr[1].HighPart * addr[1].LowPart;
 
     if (outputBufferSize < numberOfBytes)
         return STATUS_INVALID_PARAMETER;
 
-    UINT32* baseAddress = MmMapIoSpace(*systemBuffer, numberOfBytes, MmNonCached);
+    UINT32* baseAddress = MmMapIoSpace(*addr, numberOfBytes, MmNonCached);
 
-    RtlCopyMemory(outputBuffer, baseAddress, systemBuffer[1].HighPart);
+    RtlCopyMemory(outputBuffer, baseAddress, addr[1].HighPart);
 
     MmUnmapIoSpace(baseAddress, numberOfBytes);
+
+    *written = addr[1].HighPart;
 
     return STATUS_SUCCESS;
 }
 
-NTSTATUS WriteMemory(PHYSICAL_ADDRESS* inputBuffer, UINT32 inputBufferSize, VOID* unused1, VOID* unused2, VOID* unused3) {
-    UNREFERENCED_PARAMETER(unused1);
-    UNREFERENCED_PARAMETER(unused2);
-    UNREFERENCED_PARAMETER(unused3);
+NTSTATUS WriteMemory(PHYSICAL_ADDRESS* addr, UINT32 size, BYTE* userBuffer) {
+    UINT32 numberOfBytes = addr[1].HighPart * addr[1].LowPart;
 
-    if (inputBufferSize < 16)
+    if (size < numberOfBytes + 16)
         return STATUS_INVALID_PARAMETER;
 
-    UINT32 numberOfBytes = inputBuffer[1].HighPart * inputBuffer[1].LowPart;
+    UINT32* baseAddress = MmMapIoSpace(*addr, numberOfBytes, MmNonCached);
 
-    if (inputBufferSize < numberOfBytes + 16)
-        return STATUS_INVALID_PARAMETER;
-
-    UINT32* baseAddress = MmMapIoSpace(*inputBuffer, numberOfBytes, MmNonCached);
-
-    RtlCopyMemory(baseAddress, &inputBuffer[2], inputBuffer[1].HighPart);
+    RtlCopyMemory(baseAddress, userBuffer, addr[1].HighPart);
 
     MmUnmapIoSpace(baseAddress, numberOfBytes);
 
@@ -55,18 +45,13 @@ VOID VulnDriverIoDeviceControl(
     _In_ ULONG ioControlCode
 ) {
     UNREFERENCED_PARAMETER(queue);
-    UNREFERENCED_PARAMETER(outputBufferLength);
-    UNREFERENCED_PARAMETER(inputBufferLength);
 
     NTSTATUS status = STATUS_SUCCESS;
 
-    IRP* irp = WdfRequestWdmGetIrp(request);
-    UINT32* stack = (UINT32*)irp->Tail.Overlay.CurrentStackLocation;
-
     switch (ioControlCode) {
     case IOCTL_PING: {
-        PUINT32 inValue = NULL;
-        PUINT32 outValue = NULL;
+        UINT32* inValue = NULL;
+        UINT32* outValue = NULL;
         SIZE_T inSize = 0;
         SIZE_T outSize = 0;
 
@@ -84,28 +69,93 @@ VOID VulnDriverIoDeviceControl(
         return;
     }
     case IOCTL_READ_MEMORY: {
-        // Arguments are extracted from IDA
-        status = ReadMemory(
-            irp->AssociatedIrp.MasterIrp,
-            *((UINT32*)stack + 4),
-            irp->AssociatedIrp.MasterIrp,
-            *((UINT32*)stack + 2),
-            &irp->IoStatus.Information
-        );
+        if (inputBufferLength < sizeof(READ_MEMORY_INPUT_BUFFER)) {
+            status = STATUS_BUFFER_TOO_SMALL;
+            break;
+        }
+
+        READ_MEMORY_INPUT_BUFFER* inputBuffer = NULL;
+
+        status = WdfRequestRetrieveInputBuffer(request, sizeof(READ_MEMORY_INPUT_BUFFER), (PVOID*)&inputBuffer, NULL);
         if (!NT_SUCCESS(status))
             break;
+
+        VOID* outBuf = NULL;
+
+        status = WdfRequestRetrieveOutputBuffer(request, outputBufferLength, &outBuf, NULL);
+        if (!NT_SUCCESS(status))
+            break;
+
+        LONG written = 0;
+
+        status = ReadMemory(&inputBuffer->physicalAddress, inputBuffer->size, outBuf, outputBufferLength, &written);
+        if (!NT_SUCCESS(status))
+            break;
+        
+        WdfRequestCompleteWithInformation(request, STATUS_SUCCESS, written);
+        return;
     }
     case IOCTL_WRITE_MEMORY: {
-        // Arguments are extracted from IDA
-        status = WriteMemory(
-            irp->AssociatedIrp.MasterIrp,
-            *((UINT32*)stack + 4),
-            irp->AssociatedIrp.MasterIrp,
-            *((UINT32*)stack + 2),
-            &irp->IoStatus.Information
-        );
+        if (inputBufferLength < sizeof(WRITE_MEMORY_INPUT_BUFFER)) {
+            status = STATUS_BUFFER_TOO_SMALL;
+            break;
+        }
+
+        WRITE_MEMORY_INPUT_BUFFER* inputBuffer = NULL;
+
+        status = WdfRequestRetrieveInputBuffer(request, sizeof(WRITE_MEMORY_INPUT_BUFFER), (PVOID*)&inputBuffer, NULL);
         if (!NT_SUCCESS(status))
             break;
+
+        status = WriteMemory(&inputBuffer->physicalAddress, inputBuffer->size, inputBuffer->data);
+        if (!NT_SUCCESS(status))
+            break;
+
+        WdfRequestComplete(request, STATUS_SUCCESS);
+        return;
+    }
+    case IOCTL_READ_MSR: {
+        // 32bit integer for the register number
+        // and 64bit integer for the MSR register value
+        if (inputBufferLength < sizeof(UINT32) || outputBufferLength < sizeof(UINT64)) {
+            status = STATUS_BUFFER_TOO_SMALL;
+            break;
+        }
+
+        UINT32* msrNumber = NULL;
+
+        status = WdfRequestRetrieveInputBuffer(request, sizeof(UINT32), (PVOID*)&msrNumber, NULL);
+        if (!NT_SUCCESS(status))
+            break;
+
+        UINT64* outBuf = NULL;
+        SIZE_T actualLen = 0;
+
+        status = WdfRequestRetrieveOutputBuffer(request, sizeof(UINT64), (PVOID*)&outBuf, &actualLen);
+        if (!NT_SUCCESS(status))
+            break;
+
+        *outBuf = __readmsr(*msrNumber);
+
+        WdfRequestCompleteWithInformation(request, STATUS_SUCCESS, sizeof(UINT64));
+        return;
+    }
+    case IOCTL_WRITE_MSR: {
+        if (inputBufferLength < sizeof(WRITE_MSR_INPUT_BUFFER)) {
+            status = STATUS_BUFFER_TOO_SMALL;
+            break;
+        }
+
+        WRITE_MSR_INPUT_BUFFER* inputBuffer = NULL;
+
+        status = WdfRequestRetrieveInputBuffer(request, sizeof(WRITE_MSR_INPUT_BUFFER), (PVOID*)&inputBuffer, NULL);
+        if (!NT_SUCCESS(status))
+            break;
+
+        __writemsr(inputBuffer->reg, inputBuffer->value);
+
+        WdfRequestComplete(request, STATUS_SUCCESS);
+        return;
     }
     default:
         status = STATUS_INVALID_DEVICE_REQUEST;
