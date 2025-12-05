@@ -6,11 +6,11 @@
 const char* PONG = "PONG";
 
 VOID VulnDriverIoDeviceControl(
-    WDFQUEUE queue,
-    WDFREQUEST request,
-    size_t outputBufferLength,
-    size_t inputBufferLength,
-    ULONG ioControlCode
+    _In_ WDFQUEUE queue,
+    _In_ WDFREQUEST request,
+    _In_ size_t outputBufferLength,
+    _In_ size_t inputBufferLength,
+    _In_ ULONG ioControlCode
 ) {
     UNREFERENCED_PARAMETER(queue);
     UNREFERENCED_PARAMETER(outputBufferLength);
@@ -46,43 +46,67 @@ VOID VulnDriverIoDeviceControl(
     WdfRequestComplete(request, status);
 }
 
-NTSTATUS VulnDriverCreateDevice(WDFDRIVER driver, PWDFDEVICE_INIT deviceInit) {
-    UNREFERENCED_PARAMETER(driver);
+WDFDEVICE gControlDevice;
 
+NTSTATUS VulnDriverCreateDevice(_In_ WDFDRIVER wdfDriver) {
     NTSTATUS status;
 	WDFDEVICE device;
 	WDF_IO_QUEUE_CONFIG queueConfig;
+
+    PWDFDEVICE_INIT deviceInit = WdfControlDeviceInitAllocate(wdfDriver, &SDDL_DEVOBJ_SYS_ALL_ADM_ALL);
 
     UNICODE_STRING deviceName;
     RtlInitUnicodeString(&deviceName, L"\\Device\\VulnDriver");
 
     status = WdfDeviceInitAssignName(deviceInit, &deviceName);
-    if (!NT_SUCCESS(status))
+    if (!NT_SUCCESS(status)) {
+        KdPrint(("[Vulnerable Driver] Error: WdfDeviceInitAssignName failed: 0x%x\n", status));
         return status;
+    }
 
 	status = WdfDeviceCreate(&deviceInit, WDF_NO_OBJECT_ATTRIBUTES, &device);
-    if (!NT_SUCCESS(status))
+    if (!NT_SUCCESS(status)) {
+        KdPrint(("[Vulnerable Driver] Error: WdfDeviceCreate failed: 0x%x\n", status));
         return status;
+    }
+    
+    KdPrint(("[Vulnerable Driver] WDF device created\n"));
 
     UNICODE_STRING symLink;
     RtlInitUnicodeString(&symLink, L"\\DosDevices\\VulnDriver");
 
     status = WdfDeviceCreateSymbolicLink(device, &symLink);
-    if (!NT_SUCCESS(status))
+    if (!NT_SUCCESS(status)) {
+        KdPrint(("[Vulnerable Driver] Error: WdfDeviceCreateSymbolicLink failed: 0x%x\n", status));
         return status;
+    }
+
+    KdPrint(("[Vulnerable Driver] WDF symlink created\n"));
 
 	WDF_IO_QUEUE_CONFIG_INIT_DEFAULT_QUEUE(&queueConfig, WdfIoQueueDispatchSequential);
 
     queueConfig.EvtIoDeviceControl = VulnDriverIoDeviceControl;
 
-	return WdfIoQueueCreate(device, &queueConfig, WDF_NO_OBJECT_ATTRIBUTES, NULL);
+	status = WdfIoQueueCreate(device, &queueConfig, WDF_NO_OBJECT_ATTRIBUTES, NULL);
+    if (!NT_SUCCESS(status)) {
+        KdPrint(("[Vulnerable Driver] Error: WdfIoQueueCreate failed: 0x%x\n", status));
+        return status;
+    }
+
+    WdfControlFinishInitializing(device);
+    
+    gControlDevice = device;
+
+    KdPrint(("[Vulnerable Driver] Control device created"));
+
+    return STATUS_SUCCESS;
 }
 
 
 NTSTATUS DriverUnload(_In_ PDRIVER_OBJECT driverObject) {
 	UNREFERENCED_PARAMETER(driverObject);
 
-	KdPrint(("[Vulnerable Driver] Unloaded"));
+	KdPrint(("[Vulnerable Driver] Unloaded\n"));
 
 	return STATUS_SUCCESS;
 }
@@ -90,13 +114,29 @@ NTSTATUS DriverUnload(_In_ PDRIVER_OBJECT driverObject) {
 NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT driverObject, _In_ PUNICODE_STRING registryPath) {
 	UNREFERENCED_PARAMETER(registryPath);
 
-	KdPrint(("[Vulnerable Driver] Loaded"));
+	KdPrint(("[Vulnerable Driver] Loaded\n"));
 	driverObject->DriverUnload = DriverUnload;
 
 	WDF_DRIVER_CONFIG config;
-    WDF_DRIVER_CONFIG_INIT(&config, VulnDriverCreateDevice);
+    WDF_DRIVER_CONFIG_INIT(&config, WDF_NO_EVENT_CALLBACK);
 
-	NTSTATUS ret = WdfDriverCreate(driverObject, registryPath, WDF_NO_OBJECT_ATTRIBUTES, &config, WDF_NO_HANDLE);
+    config.DriverInitFlags |= WdfDriverInitNonPnpDriver;
 
-	return ret;
+    WDFDRIVER wdfDriver;
+
+	NTSTATUS status = WdfDriverCreate(driverObject, registryPath, WDF_NO_OBJECT_ATTRIBUTES, &config, &wdfDriver);
+    if (!NT_SUCCESS(status)) {
+        KdPrint(("[Vulnerable Driver] Error: WdfDriverCreated failed: 0x%x\n", status));
+        return status;
+    }
+
+	KdPrint(("[Vulnerable Driver] WDF driver created\n"));
+
+    status = VulnDriverCreateDevice(wdfDriver);
+    if (!NT_SUCCESS(status)) {
+        KdPrint(("[Vulnerable Driver] Error: VulnDriverCreateDevice failed: 0x%x\n", status));
+        return status;
+    }
+
+	return STATUS_SUCCESS;
 }
