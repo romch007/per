@@ -17,3 +17,9 @@
         0x802, \
         METHOD_BUFFERED, \
         FILE_ANY_ACCESS)
+
+#define IOCTL_READ_MSR CTL_CODE( \
+        FILE_DEVICE_UNKNOWN, \
+        0x803, \
+        METHOD_BUFFERED, \
+        FILE_ANY_ACCESS)
