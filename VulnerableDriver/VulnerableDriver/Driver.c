@@ -53,7 +53,11 @@ NTSTATUS VulnDriverCreateDevice(_In_ WDFDRIVER wdfDriver) {
 	WDFDEVICE device;
 	WDF_IO_QUEUE_CONFIG queueConfig;
 
-    PWDFDEVICE_INIT deviceInit = WdfControlDeviceInitAllocate(wdfDriver, &SDDL_DEVOBJ_SYS_ALL_ADM_ALL);
+    // Everyone can open the device
+    UNICODE_STRING permissions;
+    RtlInitUnicodeString(&permissions, L"D:(A;;GA;;;WD)");
+
+    PWDFDEVICE_INIT deviceInit = WdfControlDeviceInitAllocate(wdfDriver, &permissions);
 
     UNICODE_STRING deviceName;
     RtlInitUnicodeString(&deviceName, L"\\Device\\VulnDriver");
