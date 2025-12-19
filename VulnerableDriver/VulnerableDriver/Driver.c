@@ -3,8 +3,6 @@
 
 #include "IOCTL.h"
 
-const char* PONG = "PONG";
-
 NTSTATUS ReadMemory(PHYSICAL_ADDRESS* addr, UINT32 size, VOID* outputBuffer, UINT32 outputBufferSize, LONG* written) {
     UINT32 numberOfBytes = addr[1].HighPart * addr[1].LowPart;
 
@@ -47,6 +45,8 @@ VOID VulnDriverIoDeviceControl(
     UNREFERENCED_PARAMETER(queue);
 
     NTSTATUS status = STATUS_SUCCESS;
+
+    KdPrint(("[Vulnerable Driver] IOCTL code is 0%x\n", ioControlCode));
 
     switch (ioControlCode) {
     case IOCTL_PING: {
