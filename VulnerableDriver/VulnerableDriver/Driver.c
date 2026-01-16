@@ -226,23 +226,37 @@ NTSTATUS VulnDriverCreateDevice(_In_ WDFDRIVER wdfDriver) {
 }
 
 
-NTSTATUS DriverUnload(_In_ PDRIVER_OBJECT driverObject) {
+/* NTSTATUS DriverUnload(_In_ PDRIVER_OBJECT driverObject) {
 	UNREFERENCED_PARAMETER(driverObject);
 
 	KdPrint(("[Vulnerable Driver] Unloaded\n"));
 
 	return STATUS_SUCCESS;
+} */
+
+VOID DriverUnload(_In_ WDFDRIVER driver) {
+    UNREFERENCED_PARAMETER(driver);
+
+    KdPrint(("[Vulnerable Driver] Unloading...\n"));
+
+    if (gControlDevice) {
+        WdfObjectDelete(gControlDevice);
+        gControlDevice = NULL;
+    }
+
+    KdPrint(("[Vulnerable Driver] Unloaded\n"));
 }
 
 NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT driverObject, _In_ PUNICODE_STRING registryPath) {
 	UNREFERENCED_PARAMETER(registryPath);
 
 	KdPrint(("[Vulnerable Driver] Loaded\n"));
-	driverObject->DriverUnload = DriverUnload;
+	// driverObject->DriverUnload = DriverUnload;
 
 	WDF_DRIVER_CONFIG config;
     WDF_DRIVER_CONFIG_INIT(&config, WDF_NO_EVENT_CALLBACK);
 
+    config.EvtDriverUnload = DriverUnload;
     config.DriverInitFlags |= WdfDriverInitNonPnpDriver;
 
     WDFDRIVER wdfDriver;
