@@ -1,3 +1,5 @@
+import sys
+
 CR4_FLAGS = {
     0:  "VME",
     1:  "PVI",
@@ -27,11 +29,15 @@ GREEN = '\033[92m'
 RED = '\033[91m'
 RESET = '\033[0m'
 
-def pretty_print_cr4(cr4):
-    print(f"CR4 = 0x{cr4:016x}\n")
-    for bit, name in sorted(CR4_FLAGS.items()):
-        enabled = bool(cr4 & (1 << bit))
-        status = GREEN + "ON" + RESET if enabled else RED + "OFF" + RESET
-        print(f"[{bit:02}] {name:<12} : {status}")
 
-pretty_print_cr4(0x00000000000506f8)
+if len(sys.argv) < 2:
+    print("No CR4 value specified")
+    exit(1)
+
+cr4 = int(sys.argv[1], base=16)
+
+print(f"CR4 = 0x{cr4:016x}\n")
+for bit, name in sorted(CR4_FLAGS.items()):
+    enabled = bool(cr4 & (1 << bit))
+    status = GREEN + "ON" + RESET if enabled else RED + "OFF" + RESET
+    print(f"[{bit:02}] {name:<12} : {status}")
